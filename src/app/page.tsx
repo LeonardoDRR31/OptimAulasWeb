@@ -8,7 +8,7 @@ import DownloadTemplates from '../components/DownloadTemplates';
 import UploadForm from '../components/UploadForm';
 import Results from '../components/Results';
 import Analysis from '../components/Analysis';
-
+import { Assignment } from '../models/esquema';
 import {
   checkBackendStatus,
   downloadTemplates,
@@ -22,7 +22,7 @@ export default function Home() {
   const [cursosFile, setCursosFile] = useState<File | null>(null);
   const [aulasFile, setAulasFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [currentSolution, setCurrentSolution] = useState<any[] | null>(null);
+  const [currentSolution, setCurrentSolution] = useState<Assignment[] | null>(null);
   const [statistics, setStatistics] = useState({
     total_assignments: 0,
     conflicts: 0,

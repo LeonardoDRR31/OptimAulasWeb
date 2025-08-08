@@ -3,16 +3,7 @@
 
 import React from 'react';
 
-interface Assignment {
-  curso_nombre: string;
-  ciclo: string;
-  tipo: string;
-  estudiantes: number;
-  aula_nombre: string;
-  capacidad: number;
-  ubicacion: string;
-  horario: string;
-}
+import { Assignment } from '../models/esquema';
 
 interface Props {
   assignments: Assignment[];
