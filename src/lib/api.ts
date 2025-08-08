@@ -1,6 +1,6 @@
 // src/lib/api.ts
 export const API_URL = 'https://optim-aulas-981376214627.us-central1.run.app';
-
+import { Assignment } from '../models/esquema';
 export async function checkBackendStatus() {
   const response = await fetch(`${API_URL}/status`);
   if (!response.ok) throw new Error('Backend no disponible');
@@ -35,7 +35,7 @@ export async function optimize() {
   return await response.json();
 }
 
-export async function downloadResult(solution: any[]) {
+export async function downloadResult(solution: Assignment[]) {
   const response = await fetch(`${API_URL}/download_result`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
