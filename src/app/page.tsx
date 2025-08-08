@@ -1,103 +1,164 @@
-import Image from "next/image";
+"use client";
+// src/pages/index.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import Swal from 'sweetalert2';
+
+import TutorialSteps from '../components/TutorialSteps';
+import DownloadTemplates from '../components/DownloadTemplates';
+import UploadForm from '../components/UploadForm';
+import Results from '../components/Results';
+import Analysis from '../components/Analysis';
+
+import {
+  checkBackendStatus,
+  downloadTemplates,
+  uploadFiles,
+  optimize,
+  downloadResult,
+} from '../lib/api';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  // Estado
+  const [cursosFile, setCursosFile] = useState<File | null>(null);
+  const [aulasFile, setAulasFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [currentSolution, setCurrentSolution] = useState<any[] | null>(null);
+  const [statistics, setStatistics] = useState({
+    total_assignments: 0,
+    conflicts: 0,
+    best_fitness: 0,
+    fitness_history: [] as number[],
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+  // Estado nombres archivos para mostrar
+  const [cursosFileName, setCursosFileName] = useState<string | null>(null);
+  const [aulasFileName, setAulasFileName] = useState<string | null>(null);
+
+  // Verificar backend
+  useEffect(() => {
+    checkBackendStatus()
+      .then(({ message }) => console.log('✅ Backend conectado:', message))
+      .catch(() => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Backend no disponible',
+          text: 'Asegúrate de que el backend esté ejecutándose en http://localhost:5000',
+          footer: 'Ejecuta: python app.py',
+        });
+      });
+  }, []);
+
+  // Actualizar archivos seleccionados
+  const handleFilesSelected = useCallback((cursos:File | null, aulas: File | null) => {
+    setCursosFile(cursos);
+    setAulasFile(aulas);
+    setCursosFileName(cursos?.name || null);
+    setAulasFileName(aulas?.name || null);
+  }, []);
+
+  // Descargar templates
+  const handleDownloadTemplates = async () => {
+    try {
+      const blob = await downloadTemplates();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'templates_asignacion_aulas.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      Swal.fire('Descargado', 'Templates descargados correctamente', 'success');
+    } catch (error) {
+      Swal.fire('Error', (error as Error).message, 'error');
+    }
+  };
+
+  // Subir archivos y optimizar
+  const handleUpload = async () => {
+    if (!cursosFile || !aulasFile) {
+      Swal.fire('Error', 'Por favor selecciona ambos archivos antes de subir', 'warning');
+      return;
+    }
+    setLoading(true);
+    try {
+      await uploadFiles(cursosFile, aulasFile);
+      const result = await optimize();
+      setCurrentSolution(result.solution);
+      setStatistics({
+        total_assignments: result.total_assignments,
+        conflicts: result.conflicts,
+        best_fitness: result.best_fitness,
+        fitness_history: result.fitness_history,
+      });
+      Swal.fire('Optimización completa', 'Puedes revisar los resultados abajo.', 'success');
+    } catch (error) {
+      Swal.fire('Error', (error as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Descargar resultados
+  const handleDownloadResults = async () => {
+    if (!currentSolution) return;
+
+    try {
+      const blob = await downloadResult(currentSolution);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'resultado.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      Swal.fire('Descargado', 'Archivo de resultados descargado', 'success');
+    } catch (error) {
+      Swal.fire('Error', (error as Error).message, 'error');
+    }
+  };
+
+  // Estadísticas para análisis (ejemplo, se pueden ajustar según datos reales)
+  const campusCount = currentSolution?.filter((a) => a.ubicacion === 'Campus').length || 0;
+  const externalCount = currentSolution?.filter((a) => a.ubicacion !== 'Campus').length || 0;
+  const labCount = currentSolution?.filter((a) => a.tipo === 'laboratorio').length || 0;
+
+  return (
+    <main className="container py-4">
+      <h1 className="mb-4 text-center">
+        <i className="fas fa-school"></i> OptimAulas UNS
+      </h1>
+
+      <TutorialSteps />
+
+      <DownloadTemplates onDownload={handleDownloadTemplates} />
+
+      <UploadForm
+        onFilesSelected={handleFilesSelected}
+        onUpload={handleUpload}
+        loading={loading}
+        disabled={!cursosFile || !aulasFile}
+        cursosFileName={cursosFileName}
+        aulasFileName={aulasFileName}
+      />
+
+      {currentSolution && (
+        <>
+          <div className="mb-4 text-center">
+            <button className="btn btn-success btn-lg" onClick={handleDownloadResults}>
+              <i className="fas fa-file-download"></i> Descargar Resultados
+            </button>
+          </div>
+          <Results assignments={currentSolution} statistics={statistics} />
+          <Analysis
+            fitnessHistory={statistics.fitness_history}
+            campusCount={campusCount}
+            externalCount={externalCount}
+            labCount={labCount}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </>
+      )}
+    </main>
   );
 }
